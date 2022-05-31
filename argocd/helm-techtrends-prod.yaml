@@ -24,3 +24,4 @@ spec:
     path: helm
     repoURL: https://github.com/Rohithmarktricks/cloud_native_exp
     targetRevision: HEAD
+  syncPolicy: {}
