@@ -4,11 +4,16 @@ from time import asctime
 from flask import Flask, jsonify, json, render_template, request, url_for, redirect, flash
 from werkzeug.exceptions import abort
 
+# global variable to contain the total number of connections to the database.db
+total_connections = 0
+
 # Function to get a database connection.
 # This function connects to database with the name `database.db`
 def get_db_connection():
     connection = sqlite3.connect('database.db')
     connection.row_factory = sqlite3.Row
+    global total_connections
+    total_connections += 1
     return connection
 
 # Function to get a post using its ID
@@ -36,7 +41,7 @@ def log_info_level(message):
         Message to log.
     """
 
-    app.logger.info('{}:{}'.format(asctime(), message))
+    app.logger.info('{}: {}'.format(asctime(), message))
 
 
 
@@ -50,6 +55,8 @@ def log_error_level(message):
     message: str
         Message to log
     """
+
+    app.logger.error('{}: {}'.format(asctime(), message))
 
 # Define the main route of the web application 
 @app.route('/')
@@ -66,7 +73,7 @@ def index():
 def post(post_id):
     post = get_post(post_id)
     if post is None:
-        log_info_level('Post: Failed to get #{}.'.format(post_id))
+        log_error_level('Error 404. Post: Failed to get article with id #{}.'.format(post_id))
         return render_template('404.html'), 404
     else:
         log_info_level('Post: Article "{}" is retrieved'.format(post['title']))
@@ -137,11 +144,13 @@ def metrics():
     try:
 
         connection = get_db_connection()
-        article_count = connection.execute('SELECT 1 FROM posts').fetchone()
+        article_count = connection.execute('SELECT 1 FROM posts').fetchall()
         connection.close()
 
-        metrics_obj['db_connection_count'] += 1
-        metrics_obj['post_count'] = article_count[0]
+        # use the global variable here
+        global total_connections
+        metrics_obj['db_connection_count'] = total_connections 
+        metrics_obj['post_count'] = len(article_count)
 
         log_info_level('Metrics: @ {} posts, {} connections'.format(metrics_obj['post_count'], 
                                             metrics_obj['db_connection_count']))
