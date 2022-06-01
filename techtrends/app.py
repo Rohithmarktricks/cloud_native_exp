@@ -19,24 +19,6 @@ def get_post(post_id):
     connection.close()
     return post
 
-# def check_db_connection():
-#     """Checks if connecting to database is successful"""
-#     try:
-#         connection = get_db_connection()
-#         connection.close()
-#     except:
-#         raise Exception("Database connection failure")
-    
-# def post_table_exists():
-#     """Checks if the post table exists"""
-#     try:
-#         connection = get_db_connection()
-#         connection.execute("SELECT 1 FROM posts").fetchone()
-#         connection.close()
-#     except:
-#         raise Exception("Table "posts" does not exist")
-
-
 
 # Define the Flask application
 app = Flask(__name__)
@@ -55,6 +37,19 @@ def log_info_level(message):
     """
 
     app.logger.info('{}:{}'.format(asctime(), message))
+
+
+
+def log_error_level(message):
+    """
+    Add error level log to the app's logger
+    =======================================
+
+    Input Params:
+    ------------
+    message: str
+        Message to log
+    """
 
 # Define the main route of the web application 
 @app.route('/')
@@ -101,7 +96,7 @@ def create():
             log_info_level('Create: new article created "{}".'.format(title))
             return redirect(url_for('index'))
 
-    log_info_level('Create: Failed to create article because of missing title.')
+    log_error_level('Create: Failed to create article because of missing title.')
     return render_template('create.html')
 
 # Define the Healthcheck endpoint
@@ -118,28 +113,52 @@ def healthz():
         connection = get_db_connection()
         connection.execute('SELECT 1 FROM posts').fetchone()
         connection.close()
-        app.logger.info('Healthcheck: ok')
+        log_info_level('Healthcheck: ok')
     except Exception:
         response = app.response_class(
                         response=json.dumps({'result' : 'Error - not healthy'}),
                                       status=200, mimetype='application/json')
-        log_info_level('Healthcheck: failed')
+        log_error_level('Healthcheck: failed')
     return response
 
+# Define the Metrics endpoint
 @app.route('/metrics')
 def metrics():
+    """
+    Added function that peforms metrics check
+    =========================================
+    """
 
-    global connections_count
+    metrics_obj = {
+    'db_connection_count': 0,
+    'post_count': None
+    }
 
-    connection = get_db_connection()
-    helper = connection.execute('SELECT COUNT(*) FROM posts').fetchone()
-    posts_count = helper[0]
-    connection.close()
-    log_info_level('Metrics: @ {} posts, {} connections'.format(posts_count, connections_count))
+    try:
 
-    return app.response_class(response=json.dumps(
-        {'db_connection_count': connections_count, 'post_count': posts_count}),
-    status=200, mimetype='application/json')
+        connection = get_db_connection()
+        article_count = connection.execute('SELECT 1 FROM posts').fetchone()
+        connection.close()
+
+        metrics_obj['db_connection_count'] += 1
+        metrics_obj['post_count'] = article_count[0]
+
+        log_info_level('Metrics: @ {} posts, {} connections'.format(metrics_obj['post_count'], 
+                                            metrics_obj['db_connection_count']))
+        
+        response = app.response_class(
+                response=json.dumps(metrics_obj),
+                status=200,
+                mimetype='application/json')
+
+    except  Exception as e:
+        log_error_level("Metrics: Failed to accumulate, check db connection")
+        response  = app.response_class(
+            response  = json.dumps({'result': "Error - couldn't get metrics as db connection is broken"}),
+            status=200, mimetype='application/json')
+
+
+    return response
         
 
 
