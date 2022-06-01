@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from time import asctime
+import os
 from flask import Flask, jsonify, json, render_template, request, url_for, redirect, flash
 from werkzeug.exceptions import abort
 
@@ -41,13 +41,13 @@ def log_info_level(message):
         Message to log.
     """
 
-    app.logger.info('{}: {}'.format(asctime(), message))
+    logging.info('{}'.format(message))
 
 
 
 def log_error_level(message):
     """
-    Add error level log to the app's logger
+    Add error level log to the app's logging
     =======================================
 
     Input Params:
@@ -56,7 +56,7 @@ def log_error_level(message):
         Message to log
     """
 
-    app.logger.error('{}: {}'.format(asctime(), message))
+    logging.error('{}'.format(message))
 
 # Define the main route of the web application 
 @app.route('/')
@@ -170,8 +170,25 @@ def metrics():
     return response
         
 
+def initialize_logger():
+    """Logging config"""
+    log_level = os.getenv("LOGLEVEL", "DEBUG").upper()
+    log_level = (
+        getattr(logging, log_level)
+        if log_level in ["CRITICAL", "DEBUG", "ERROR", "INFO", "WARNING"]
+        else logging.DEBUG
+        )
+
+    logging.basicConfig(
+        format='%(levelname)s:%(name)s:%(asctime)s, %(message)s',
+        level=log_level
+
+        )
+
+
 
 # start the application on port 3111
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
+    initialize_logger()
     app.run(host='0.0.0.0', port='3111')
